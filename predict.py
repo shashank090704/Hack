@@ -1,9 +1,7 @@
-
-
 import argparse
 import json
 import sys
-from collections import defaultdict, Counter
+from collections import Counter
 from datetime import datetime, timedelta
 import numpy as np
 import pandas as pd
@@ -70,6 +68,12 @@ def ratio(n, d):
 def compute_base_and_flags(user):
     meta = user.get("User_Header_Metadata", {}) or {}
     uid = meta.get("user_id") or meta.get("userId") or meta.get("id")
+
+    # extra metadata fields
+    last_known_ip = meta.get("last_known_ip")
+    last_online = meta.get("last_online")
+    current_mobile_no = meta.get("current_mobile_no")
+    last_device_logged = meta.get("last_device_logged")
 
     sim_swaps = safe_int(meta.get("sim_swaps") or meta.get("sim_swap_count") or 0)
     total_reports = safe_int(meta.get("total_report_count") or meta.get("reports") or 0)
@@ -151,6 +155,11 @@ def compute_base_and_flags(user):
         image_gif_ratio=image_gif_ratio,
         group_high_rep_ratio=group_high_rep_ratio,
         flag_count=sum(flags.values()),
+        # extra meta
+        last_known_ip=last_known_ip,
+        last_online=last_online,
+        current_mobile_no=current_mobile_no,
+        last_device_logged=last_device_logged,
     )
     combined.update(flags)
     return combined
@@ -186,8 +195,11 @@ def predict_and_rank(data, model_path, top_k=5, rule_threshold=6, alpha=0.6):
     out = pd.DataFrame({
         "user_id": [r.get("user_id") for r in rows],
         "flag_count": [r.get("flag_count", 0) for r in rows],
-        "predicted_proba": proba
-        
+        "predicted_proba": proba,
+        "last_known_ip": [r.get("last_known_ip") for r in rows],
+        "last_online": [r.get("last_online") for r in rows],
+        "current_mobile_no": [r.get("current_mobile_no") for r in rows],
+        "last_device_logged": [r.get("last_device_logged") for r in rows],
     })
 
     max_flags = max(1, out["flag_count"].max())
@@ -195,7 +207,7 @@ def predict_and_rank(data, model_path, top_k=5, rule_threshold=6, alpha=0.6):
     out["suspicious_priority"] = out["flag_count"] >= rule_threshold
 
     out = out.sort_values(by=["suspicious_priority", "final_score"], ascending=[False, False])
-    top = out[["user_id", "flag_count", "predicted_proba"]].head(top_k)
+    top = out[["user_id", "flag_count", "predicted_proba", "last_known_ip", "last_online", "current_mobile_no", "last_device_logged"]].head(top_k)
     top["predicted_proba"] = top["predicted_proba"].round(6)
 
     return {"top_k": top_k, "results": top.to_dict(orient="records")}
@@ -215,4 +227,4 @@ if __name__ == "__main__":
         raw_data = json.loads(sys.stdin.read())
 
     result = predict_and_rank(raw_data, args.model, top_k=args.topk)
-    print(json.dumps(result))
+    print(json.dumps(result, indent=2))

@@ -85,8 +85,14 @@
 const express = require("express");
 const bodyParser = require("body-parser");
 const { spawn } = require("child_process");
-
+import cors from "cors";
 const app = express();
+
+app.use(cors({
+  origin: ["http://localhost:3000"], // allow frontend
+  methods: ["GET", "POST"], // allowed methods
+  credentials: true
+}));
 app.use(bodyParser.json({ limit: "50mb" }));
 
 app.post("/predict", (req, res) => {

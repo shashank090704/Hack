@@ -85,7 +85,7 @@
 const express = require("express");
 const bodyParser = require("body-parser");
 const { spawn } = require("child_process");
-import cors from "cors";
+const cors  = require("cors");
 const app = express();
 
 app.use(cors({
